@@ -9,10 +9,17 @@ require 'digest'
 
 class PreservicaClient
 
-  def initialize(host, username, password)
-    @host = host
-    @username = username
-    @password = password
+  def initialize(args)
+    @host = args[:base_url] || "https://#{ENV['PRESERVICA_HOST']}"
+    if args[:admin_set_key]
+      credentials = JSON.parse(ENV['PRESERVICA_CREDENTIALS'])[args[:admin_set_key]]
+      @username = credentials['username']
+      @password = credentials['password']
+    else
+      @username = args[:username]
+      @password = args[:password]
+    end
+    login
   end
 
   def login
@@ -157,9 +164,7 @@ end
 
 
 
-username = ENV['PRESERVICA_USERNAME']
-password = ENV['PRESERVICA_PASSWORD']
-preservica_client = PreservicaClient.new(ENV['PRESERVICA_HOST'], username, password)
+preservica_client = PreservicaClient.new(admin_set_key: 'brbl')
 preservica_client.login
 
 preservica_client.structural_object_children_bitstreams("7fe35e8c-c21a-444a-a2e2-e3c926b519c4") do |content_id, data|
