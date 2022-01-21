@@ -165,7 +165,6 @@ end
 
 
 preservica_client = PreservicaClient.new(admin_set_key: 'brbl')
-preservica_client.login
 
 preservica_client.structural_object_children_bitstreams("7fe35e8c-c21a-444a-a2e2-e3c926b519c4") do |content_id, data|
   puts "#{content_id} #{data.length}"
