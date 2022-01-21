@@ -81,6 +81,25 @@ class PreservicaClient
     get "/api/entity/content-objects/#{id}/generations/#{generation}/bitstreams/#{bitstream}/content"
   end
 
+  def structural_object_children_bitstreams(id)
+    structural_object_children = Nokogiri::XML(structural_object_children(id)).remove_namespaces!
+    structural_object_children.xpath('/ChildrenResponse/Children/Child').each do |child_ref|
+      information_object_id = child_ref.xpath('@ref').text
+      bitstream_information_array = information_object_active_bitstream_information(information_object_id)
+      bitstream_information_array.each do |bitstream_info|
+        data = content_object_generation_bitstream_content(bitstream_info[:content_object_id], bitstream_info[:generation_id], bitstream_info[:bitstream_id])
+        if data.length == bitstream_info[:file_size]
+          downloaded_sha = Digest::SHA512.hexdigest data
+          if downloaded_sha == bitstream_info[:sha512]
+            yield bitstream_info[:content_object_id], data if block_given?
+          end
+        else
+          raise "Invalid bitstream data"
+        end
+      end
+    end
+  end
+
   def information_object_active_bitstream_information(information_object_id)
     information = []
     xml = Nokogiri::XML(information_object_representations(information_object_id)).remove_namespaces!
@@ -106,7 +125,6 @@ class PreservicaClient
   end
 
   def get uri
-    puts "GETTING #{uri}"
     authenticated_get URI("#{@host}#{uri}") do |http, request|
       response = http.request request
       raise StandardError, "Request error #{response.code} #{response.body}" unless response.kind_of? Net::HTTPSuccess
@@ -144,19 +162,8 @@ password = ENV['PRESERVICA_PASSWORD']
 preservica_client = PreservicaClient.new(ENV['PRESERVICA_HOST'], username, password)
 preservica_client.login
 
-bitstream_information_array = preservica_client.information_object_active_bitstream_information('9e543f0c-d174-4c18-8bb8-fa7d75a5c6ab')
-bitstream_information_array.each do |bitstream_info|
-  puts bitstream_info
-  data = preservica_client.content_object_generation_bitstream_content(bitstream_info[:content_object_id], bitstream_info[:generation_id], bitstream_info[:bitstream_id])
-  if data.length == bitstream_info[:file_size]
-    puts 'SIZE MATCHES'
-    downloaded_sha = Digest::SHA512.hexdigest data
-    if downloaded_sha == bitstream_info[:sha512]
-      puts 'CHECKSUMS MATCH'
-    end
-  else
-    puts 'FAILURE'
-  end
+preservica_client.structural_object_children_bitstreams("7fe35e8c-c21a-444a-a2e2-e3c926b519c4") do |content_id, data|
+  puts "#{content_id} #{data.length}"
 end
 
 
